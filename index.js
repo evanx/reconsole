@@ -53,15 +53,17 @@ module.exports = (config, redis) => {
         data.count++;
         if (timestamp - data.timestamp > timeLimit) {
             if (typeof arg === 'object' && arg.name === 'DataError' && arg.message && arg.data) {
-                const jsonKey = `logger:error:${config.redisNamespace}:j`;
-                const hashesKey = `logger:error:${config.redisNamespace}:h`;
                 const multi = client.multi();
-                multi.set(jsonKey, JSON.stringify(arg.data));
-                multi.hset(hashesKey, 'time', new Date(timestamp).toISOString());
-                multi.hset(hashesKey, 'message', arg.message);
+                multi.hmset(`logger:error:${config.redisNamespace}:h`, {
+                    time: new Date(timestamp).toISOString(),
+                    message: arg.message
+                });
+                multi.set(`logger:error:${config.redisNamespace}:j`, JSON.stringify(arg.data));
+                multi.sadd('logger:error:s', config.redisNamespace);
+                const hashesKey = ``;
                 multi.exec((err, results) => {
                     if (err) {
-                        console.error(module.filename, 'set', jsonKey, err.message);
+                        console.error(module.filename, config.redisNamespace, err.message);
                     }
                 });
             }
@@ -74,8 +76,8 @@ module.exports = (config, redis) => {
         logger[level] = (...args) => log(level, args);
         return logger;
     }, {
-       end: () => {
-           client.end(true);
-       }
+        end: () => {
+            client.end(true);
+        }
     });
 };
